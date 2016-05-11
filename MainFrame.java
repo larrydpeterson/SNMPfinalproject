@@ -27,6 +27,12 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.awt.event.ActionEvent;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
@@ -34,6 +40,7 @@ import java.awt.Font;
 import java.awt.Color;
 import javax.swing.JCheckBox;
 import javax.swing.SwingConstants;
+
 
 
 public class MainFrame extends JFrame {
@@ -107,7 +114,7 @@ public class MainFrame extends JFrame {
 			}
 		});
 	}
-
+	
 	/**
 	 * Create the frame.
 	 */
@@ -528,6 +535,12 @@ public class MainFrame extends JFrame {
 		textFieldMax12.setColumns(10);
 		textFieldMax12.setBounds(548, 323, 44, 20);
 		contentPane.add(textFieldMax12);
+		
+		JLabel lblTemperature = new JLabel("Temperature");
+		lblTemperature.setFont(new Font("Tahoma", Font.BOLD, 13));
+		lblTemperature.setBounds(448, 486, 36, 16);
+		lblTemperature.setVisible(false);
+		contentPane.add(lblTemperature);
 				
 		
 		JLabel[] lblInts = new JLabel[25];
@@ -618,14 +631,40 @@ public class MainFrame extends JFrame {
 		textFieldMax[12] = textFieldMax12;
 		
 		
+		DefaultComboBoxModel model = new DefaultComboBoxModel();
+		JComboBox comboBox = new JComboBox();
+		comboBox.setBounds(40, 14, 305, 22);
+		contentPane.add(comboBox);
 		
 		JButton btnAddNewDevice = new JButton("Add New Device");
 		btnAddNewDevice.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 
 				try {
-						AddNewDeviceFrame addNewDeficeFrame = new AddNewDeviceFrame();
-						addNewDeficeFrame.setVisible(true);
+						//AddNewDeviceFrame addNewDeficeFrame = new AddNewDeviceFrame();
+						//addNewDeficeFrame.setVisible(true);
+						
+						JFrame frame = new JFrame();
+						Object result = JOptionPane.showInputDialog(frame, "Enter printer name:");
+						comboBox.addItem(result);
+						
+						Connection con = DriverManager.getConnection("jdbc:mysql://sql3.freemysqlhosting.net?" +
+						        "user=sql3105042&password=J26G73LDac");
+
+								Statement st = con.createStatement();
+								String sql = ("INSERT INTO sql3105042.NetworkDevices (IPAddress) " +
+								"VALUES ('"+result
+
+										+ "');");
+								//System.out.println(sql);
+								//System.out.println("Record added to NetworkDevices table");
+								st.executeUpdate(sql);
+								con.close();
+						
+						
+						
+						
+						
 					} catch (Exception e) {
 						e.printStackTrace();
 				}
@@ -637,11 +676,72 @@ public class MainFrame extends JFrame {
 		btnAddNewDevice.setBounds(553, 13, 140, 25);
 		contentPane.add(btnAddNewDevice);
 		
-		DefaultComboBoxModel model = new DefaultComboBoxModel();
+		JButton btnTempTimer = new JButton("Poll Device Temperature");
+		btnTempTimer.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
 				
-		JComboBox comboBox = new JComboBox();
-		comboBox.setBounds(40, 14, 305, 22);
-		contentPane.add(comboBox);
+				
+				
+				btnTempTimer.setEnabled(false);
+				Timer timer = new Timer();
+				
+				TimerTask timerTask = new TimerTask() {
+					
+						public void run(){ 
+							
+							SimpleSnmpClient client = new SimpleSnmpClient("udp:" + comboBox.getSelectedItem() + "/161");
+							String ipAddress = comboBox.getSelectedItem().toString();
+							
+							try {
+								String sysTemp = client.getAsString(new OID(".1.3.6.1.4.1.9.9.13.1.3.1.3.1006"));
+								//System.out.println(sysTemp);
+								
+								Connection con = DriverManager.getConnection("jdbc:mysql://sql3.freemysqlhosting.net?" +
+								        "user=sql3105042&password=J26G73LDac");
+
+										Statement st = con.createStatement();
+										String sql = ("INSERT INTO sql3105042.DeviceTemps (IPAddress, temp) " +
+										"VALUES ('"+ipAddress+"','"
+												+ sysTemp 
+												+ "');");
+										
+									
+																			
+										//System.out.println(sql);
+										//System.out.println("Record added to NetworkDevices table");
+										st.executeUpdate(sql);
+										con.close();
+								
+										lblTemperature.setText(sysTemp + "\u00b0"+"C");
+										lblTemperature.setVisible(true);
+								
+								
+								
+								
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+							
+							
+							
+							
+							//here have your program do whatever you wnt 
+						}; 
+				}; 
+
+				timer.schedule(timerTask, 0, 300000); //five minutes
+							
+			}
+		});
+		btnTempTimer.setBounds(496, 482, 215, 25);
+		btnTempTimer.setVisible(false);
+		contentPane.add(btnTempTimer);
+				
+
 		
 		
 		try {
@@ -683,6 +783,7 @@ public class MainFrame extends JFrame {
 				
 				btnGraphStats.setVisible(true);
 				button.setVisible(true);
+				btnTempTimer.setVisible(true);
 				
 				for (int i=1; i<13; i++) {
 					
@@ -848,7 +949,7 @@ public class MainFrame extends JFrame {
 				ChartFrame cframe = new ChartFrame("Switch Interface Statistics", chart);
 				cframe.setSize(1000,500);
 				cframe.setVisible(true);
-				
+		
 				
 			}
 		});
@@ -893,13 +994,17 @@ public class MainFrame extends JFrame {
 		button.setBounds(212, 482, 172, 25);
 		button.setVisible(false);
 		contentPane.add(button);
+		
+
+		
+
 
 		
 		// Future security here (check username against preapproved list)
 		String username = System.getProperty("user.name");
 		if (username.contains("Larry")) {
 		} else {
-			btnUpdate1.setVisible(false);
+			btnUpdate1.setEnabled(false);
 		}
 		
 		// System.out.println(username);
